@@ -13,7 +13,7 @@ made and fixed.
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 
 from eval_lens.comparisons import Comparison
@@ -72,6 +72,8 @@ def case_information(corpus: Corpus, comparisons: list[Comparison]) -> list[Case
     taking_part: dict[tuple[Scope, str], int] = defaultdict(int)
     differing: dict[tuple[Scope, str], int] = defaultdict(int)
     for comparison in comparisons:
+        if comparison.control not in scope_of or comparison.candidate not in scope_of:
+            continue  # a comparison naming runs this corpus does not hold
         scope = scope_of[comparison.control]
         cases = {case for run_id, case in rates if run_id in comparison.runs}
         for case in cases:
@@ -197,3 +199,184 @@ def drift(corpus: Corpus) -> list[Drift]:
             )
         )
     return results
+
+
+@dataclass(frozen=True)
+class CaseCost:
+    """What one case costs to ask, and whether the answer was worth it."""
+
+    project: str
+    suite_version: str
+    case_id: str
+    trials: int
+    seconds: float
+    input_tokens: int
+    output_tokens: int
+
+
+def case_cost(corpus: Corpus) -> list[CaseCost]:
+    totals: dict[tuple[Scope, str], list[float]] = defaultdict(lambda: [0, 0.0, 0, 0])
+    scope_of = {run.run_id: (run.project, run.suite_version) for run in corpus.runs}
+    for trial in graded(corpus.trials):
+        row = totals[(scope_of[trial.run_id], trial.case_id)]
+        row[0] += 1
+        row[1] += trial.seconds
+        row[2] += trial.input_tokens
+        row[3] += trial.output_tokens
+    return [
+        CaseCost(
+            project=scope[0],
+            suite_version=scope[1],
+            case_id=case,
+            trials=int(row[0]),
+            seconds=row[1],
+            input_tokens=int(row[2]),
+            output_tokens=int(row[3]),
+        )
+        for (scope, case), row in sorted(totals.items())
+    ]
+
+
+@dataclass(frozen=True)
+class SilenceCost:
+    """The share of a suite's running time that bought no answer."""
+
+    project: str
+    suite_version: str
+    informative_cases: int
+    silent_cases: int
+    uncompared_cases: int
+    """Cases in a dataset version that no comparison ever used: unjudged, not silent."""
+    informative_seconds: float
+    silent_seconds: float
+
+    @property
+    def wasted_share(self) -> float:
+        total = self.informative_seconds + self.silent_seconds
+        return self.silent_seconds / total if total else 0.0
+
+
+def silence_cost(verdicts: list[CaseVerdict], costs: list[CaseCost]) -> list[SilenceCost]:
+    """Time spent on cases that never separated two sides, per dataset version."""
+    seconds = {(cost.project, cost.suite_version, cost.case_id): cost.seconds for cost in costs}
+    grouped: dict[Scope, list[float]] = defaultdict(lambda: [0, 0, 0, 0.0, 0.0])
+    for verdict in verdicts:
+        scope = (verdict.project, verdict.suite_version)
+        spent = seconds.get((verdict.project, verdict.suite_version, verdict.case_id), 0.0)
+        if not verdict.comparisons:
+            # A dataset version nothing was ever compared on cannot be called wasteful:
+            # the corpus simply never asked it a question.
+            grouped[scope][2] += 1
+            continue
+        informative = verdict.label == "informative"
+        grouped[scope][0 if informative else 1] += 1
+        grouped[scope][3 if informative else 4] += spent
+    return [
+        SilenceCost(
+            project=scope[0],
+            suite_version=scope[1],
+            informative_cases=int(values[0]),
+            silent_cases=int(values[1]),
+            uncompared_cases=int(values[2]),
+            informative_seconds=values[3],
+            silent_seconds=values[4],
+        )
+        for scope, values in sorted(grouped.items())
+    ]
+
+
+@dataclass(frozen=True)
+class VarianceSplit:
+    """Where the spread in verdicts comes from, inside one comparison.
+
+    A crude decomposition of a binary outcome, and it is reported as a direction rather
+    than a measurement: with 27 cases and three repeats the residual term absorbs
+    anything the other two cannot explain, including the interaction between them.
+    """
+
+    comparison: str
+    between_cases: float
+    between_variants: float
+    residual: float
+
+
+def variance_split(corpus: Corpus, comparisons: list[Comparison]) -> list[VarianceSplit]:
+    rows: list[VarianceSplit] = []
+    for comparison in comparisons:
+        outcomes = [trial for trial in graded(corpus.trials) if trial.run_id in comparison.runs]
+        if not outcomes:
+            continue
+        grand = sum(trial.passed for trial in outcomes) / len(outcomes)
+        total = sum((trial.passed - grand) ** 2 for trial in outcomes)
+        if total == 0:
+            rows.append(VarianceSplit(comparison.name, 0.0, 0.0, 0.0))
+            continue
+
+        by_case: dict[str, list[bool]] = defaultdict(list)
+        by_run: dict[str, list[bool]] = defaultdict(list)
+        for trial in outcomes:
+            by_case[trial.case_id].append(trial.passed)
+            by_run[trial.run_id].append(trial.passed)
+        case_ss = sum(
+            len(values) * (sum(values) / len(values) - grand) ** 2 for values in by_case.values()
+        )
+        run_ss = sum(
+            len(values) * (sum(values) / len(values) - grand) ** 2 for values in by_run.values()
+        )
+        rows.append(
+            VarianceSplit(
+                comparison=comparison.name,
+                between_cases=case_ss / total,
+                between_variants=run_ss / total,
+                residual=max(0.0, 1 - (case_ss + run_ss) / total),
+            )
+        )
+    return rows
+
+
+@dataclass(frozen=True)
+class FailureProfile:
+    """Which gates fail, and which ones never fire at all."""
+
+    project: str
+    label: str
+    trials: int
+    runs: int
+
+
+def failure_profile(corpus: Corpus) -> list[FailureProfile]:
+    trials_with: Counter[tuple[str, str]] = Counter()
+    runs_with: dict[tuple[str, str], set[str]] = defaultdict(set)
+    project_of = {run.run_id: run.project for run in corpus.runs}
+    for trial in graded(corpus.trials):
+        for label in set(trial.failures):
+            key = (project_of[trial.run_id], label)
+            trials_with[key] += 1
+            runs_with[key].add(trial.run_id)
+    return [
+        FailureProfile(
+            project=project, label=label, trials=count, runs=len(runs_with[(project, label)])
+        )
+        for (project, label), count in trials_with.most_common()
+    ]
+
+
+def silent_gates(corpus: Corpus) -> list[tuple[str, str, int]]:
+    """Gates that a project records on every trial and that never once failed.
+
+    A gate that never fails is either a rule nothing in the suite breaks, or a rule
+    written so that nothing can break it. Both are worth knowing; neither is visible
+    from a pass rate.
+    """
+    seen: dict[tuple[str, str], list[int]] = defaultdict(lambda: [0, 0])
+    project_of = {run.run_id: run.project for run in corpus.runs}
+    for trial in graded(corpus.trials):
+        for gate, passed in trial.gates:
+            row = seen[(project_of[trial.run_id], gate)]
+            row[0] += 1
+            row[1] += 0 if passed else 1
+    return [
+        (project, gate, values[0])
+        for (project, gate), values in sorted(seen.items())
+        if values[1] == 0
+    ]

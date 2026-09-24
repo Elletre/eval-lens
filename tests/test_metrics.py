@@ -6,7 +6,16 @@ import pytest
 
 from eval_lens.comparisons import Comparison, derive
 from eval_lens.ingest import read_corpus
-from eval_lens.metrics import case_information, drift, repeat_noise
+from eval_lens.metrics import (
+    case_cost,
+    case_information,
+    drift,
+    failure_profile,
+    repeat_noise,
+    silence_cost,
+    silent_gates,
+    variance_split,
+)
 from eval_lens.model import Corpus, Run, Trial
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -125,3 +134,53 @@ def test_the_real_corpus_yields_the_comparisons_its_projects_published():
     names = {comparison.factor for comparison in derive(corpus)}
     assert names == {"improved", "vague-tool-descriptions", "untrusted-content-unmarked"}
     assert len(derive(corpus)) == 7, "three prompt comparisons and four defect comparisons"
+
+
+def test_silence_is_counted_in_seconds_not_only_in_cases(toy, toy_comparison):
+    verdicts = case_information(toy, toy_comparison)
+    (cost,) = silence_cost(verdicts, case_cost(toy))
+    assert cost.informative_cases == 1 and cost.silent_cases == 3
+    assert cost.uncompared_cases == 0
+    # Every trial in the toy corpus takes a second, and each case ran four times.
+    assert cost.informative_seconds == 4.0
+    assert cost.wasted_share == pytest.approx(12 / 16)
+
+
+def test_a_dataset_version_nobody_compared_is_not_called_wasteful(toy_comparison):
+    corpus = Corpus(
+        runs=[run("solo", "control")],
+        trials=[trial("solo", "one", 1, passed=True)],
+    )
+    (cost,) = silence_cost(case_information(corpus, toy_comparison), case_cost(corpus))
+    assert (cost.informative_cases, cost.silent_cases, cost.uncompared_cases) == (0, 0, 1)
+    assert cost.wasted_share == 0.0
+
+
+def test_variance_split_finds_the_variant_when_the_variant_is_all_there_is(toy_comparison):
+    """Every case behaves the same, and only the side differs."""
+    trials = [trial("a", f"case-{i}", 1, passed=False) for i in range(4)]
+    trials += [trial("b", f"case-{i}", 1, passed=True) for i in range(4)]
+    corpus = Corpus(runs=[run("a", "control"), run("b", "candidate")], trials=trials)
+    (split,) = variance_split(corpus, toy_comparison)
+    assert split.between_variants == pytest.approx(1.0)
+    assert split.between_cases == pytest.approx(0.0)
+    assert split.residual == pytest.approx(0.0)
+
+
+def test_a_gate_that_never_fails_is_reported():
+    trials = [
+        Trial(
+            run_id="a",
+            case_id="one",
+            family="f",
+            repeat=1,
+            passed=False,
+            error="",
+            failures=("expected_status",),
+            gates=(("expected_status", False), ("known_tools_only", True)),
+        )
+    ]
+    corpus = Corpus(runs=[run("a", "control")], trials=trials)
+    assert silent_gates(corpus) == [("p", "known_tools_only", 1)]
+    profile = failure_profile(corpus)
+    assert [(item.label, item.trials) for item in profile] == [("expected_status", 1)]
