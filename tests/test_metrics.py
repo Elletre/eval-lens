@@ -11,7 +11,9 @@ from eval_lens.metrics import (
     case_information,
     drift,
     failure_profile,
+    pruning_experiment,
     repeat_noise,
+    sign_test_exact,
     silence_cost,
     silent_gates,
     variance_split,
@@ -184,3 +186,42 @@ def test_a_gate_that_never_fails_is_reported():
     assert silent_gates(corpus) == [("p", "known_tools_only", 1)]
     profile = failure_profile(corpus)
     assert [(item.label, item.trials) for item in profile] == [("expected_status", 1)]
+
+
+@pytest.mark.parametrize(
+    ("up", "down", "expected"),
+    [(0, 0, 1.0), (3, 3, 1.0), (5, 0, 0.0625), (6, 0, 0.03125), (0, 6, 0.03125)],
+)
+def test_sign_test_matches_the_exact_binomial(up, down, expected):
+    assert sign_test_exact(up, down) == pytest.approx(expected)
+
+
+def test_pruning_never_judges_a_case_by_the_comparison_it_is_used_to_recompute():
+    """A case that only ever moves in one comparison must be dropped from that one."""
+    runs = [run("a", "control"), run("b", "candidate")]
+    trials = [
+        trial("a", "only-here", 1, passed=False),
+        trial("b", "only-here", 1, passed=True),
+        trial("a", "quiet", 1, passed=True),
+        trial("b", "quiet", 1, passed=True),
+    ]
+    corpus = Corpus(runs=runs, trials=trials)
+    comparison = Comparison(name="one", project="p", control="a", candidate="b", factor="x")
+    (result,) = pruning_experiment(corpus, [comparison])
+    assert result.kept_cases == 0, "with no other comparison to judge it, nothing is informative"
+    assert result.delta_all == pytest.approx(0.5)
+
+
+def test_pruning_keeps_a_case_that_moved_in_another_comparison():
+    runs = [run("a", "control"), run("b", "candidate"), run("c", "other", config="c=2")]
+    trials = []
+    for run_id, passed in (("a", False), ("b", True), ("c", True)):
+        trials.append(trial(run_id, "moves", 1, passed=passed))
+        trials.append(trial(run_id, "silent", 1, passed=True))
+    corpus = Corpus(runs=runs, trials=trials)
+    here = Comparison(name="here", project="p", control="a", candidate="b", factor="x")
+    elsewhere = Comparison(name="elsewhere", project="p", control="a", candidate="c", factor="y")
+    results = {item.comparison: item for item in pruning_experiment(corpus, [here, elsewhere])}
+    assert results["here"].kept_cases == 1 and results["here"].dropped_cases == 1
+    assert results["here"].delta_kept == pytest.approx(1.0)
+    assert results["here"].time_saved == pytest.approx(0.5)

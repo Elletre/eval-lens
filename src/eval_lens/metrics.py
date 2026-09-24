@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
+from math import comb
 
 from eval_lens.comparisons import Comparison
 from eval_lens.model import Corpus, Run, Trial
@@ -380,3 +381,108 @@ def silent_gates(corpus: Corpus) -> list[tuple[str, str, int]]:
         for (project, gate), values in sorted(seen.items())
         if values[1] == 0
     ]
+
+
+def sign_test_exact(up: int, down: int) -> float:
+    """Two-sided exact p over the cases that moved, as both source projects use."""
+    moved = up + down
+    if moved == 0:
+        return 1.0
+    smaller = min(up, down)
+    tail = sum(comb(moved, i) for i in range(smaller + 1)) * 0.5**moved
+    return min(1.0, 2 * tail)
+
+
+@dataclass(frozen=True)
+class PrunedComparison:
+    """One published comparison, recomputed on a suite with the silence removed."""
+
+    comparison: str
+    kept_cases: int
+    dropped_cases: int
+    delta_all: float
+    delta_kept: float
+    p_all: float
+    p_kept: float
+    seconds_all: float
+    seconds_kept: float
+
+    @property
+    def same_direction(self) -> bool:
+        return (self.delta_all > 0) == (self.delta_kept > 0) or self.delta_all == self.delta_kept
+
+    @property
+    def same_verdict(self) -> bool:
+        """Significant or not, at 5%, on both the full suite and the pruned one."""
+        return (self.p_all < 0.05) == (self.p_kept < 0.05)
+
+    @property
+    def time_saved(self) -> float:
+        return 1 - self.seconds_kept / self.seconds_all if self.seconds_all else 0.0
+
+
+def pruning_experiment(corpus: Corpus, comparisons: list[Comparison]) -> list[PrunedComparison]:
+    """Would past conclusions survive a suite with its silent cases removed?
+
+    Informativeness is decided by every *other* comparison, never by the one being
+    recomputed. Judging a case by the comparison it is then used to re-decide would make
+    the answer true by construction.
+    """
+    rates = case_rates(corpus.trials)
+    seconds: dict[tuple[str, str], float] = defaultdict(float)
+    for trial in graded(corpus.trials):
+        seconds[(trial.run_id, trial.case_id)] += trial.seconds
+
+    results: list[PrunedComparison] = []
+    for comparison in comparisons:
+        others = [item for item in comparisons if item.name != comparison.name]
+        informative = {
+            verdict.case_id
+            for verdict in case_information(corpus, others)
+            if verdict.label == "informative"
+        }
+        cases = sorted(
+            case
+            for run_id, case in rates
+            if run_id == comparison.control and (comparison.candidate, case) in rates
+        )
+        if not cases:
+            continue
+        kept = [case for case in cases if case in informative]
+        results.append(
+            PrunedComparison(
+                comparison=comparison.name,
+                kept_cases=len(kept),
+                dropped_cases=len(cases) - len(kept),
+                delta_all=_delta(rates, comparison, cases),
+                delta_kept=_delta(rates, comparison, kept),
+                p_all=_sign_test(rates, comparison, cases),
+                p_kept=_sign_test(rates, comparison, kept),
+                seconds_all=_seconds(seconds, comparison, cases),
+                seconds_kept=_seconds(seconds, comparison, kept),
+            )
+        )
+    return results
+
+
+def _delta(rates: dict[tuple[str, str], float], comparison: Comparison, cases: list[str]) -> float:
+    if not cases:
+        return 0.0
+    differences = [
+        rates[(comparison.candidate, case)] - rates[(comparison.control, case)] for case in cases
+    ]
+    return sum(differences) / len(differences)
+
+
+def _sign_test(
+    rates: dict[tuple[str, str], float], comparison: Comparison, cases: list[str]
+) -> float:
+    up = sum(rates[(comparison.candidate, c)] > rates[(comparison.control, c)] for c in cases)
+    down = sum(rates[(comparison.candidate, c)] < rates[(comparison.control, c)] for c in cases)
+    return sign_test_exact(up, down)
+
+
+def _seconds(
+    seconds: dict[tuple[str, str], float], comparison: Comparison, cases: list[str]
+) -> float:
+    return sum(seconds.get((run_id, case), 0.0) for run_id in comparison.runs for case in cases)
