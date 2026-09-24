@@ -20,4 +20,7 @@ types: ## Type-check (strict)
 test: ## Run the tests
 	uv run pytest -q
 
+report: ## Regenerate REPORT.md from the corpus
+	uv run eval-lens report
+
 check: lint types test ## What CI runs

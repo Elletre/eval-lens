@@ -18,6 +18,9 @@ classifiers = [
 ]
 dependencies = ["chdb>=4.4,<5"]
 
+[project.scripts]
+eval-lens = "eval_lens.cli:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

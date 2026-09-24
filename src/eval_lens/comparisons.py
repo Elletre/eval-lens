@@ -33,6 +33,8 @@ class Comparison:
     candidate: str
     factor: str
     """What differs: the seeded defect, the prompt policy under test."""
+    config: str = ""
+    """The settings both sides share, kept so a report can say which ones varied."""
 
     @property
     def runs(self) -> tuple[str, str]:
@@ -71,6 +73,7 @@ def derive(corpus: Corpus) -> list[Comparison]:
                     control=control.run_id,
                     candidate=run.run_id,
                     factor=run.variant,
+                    config=run.config,
                 )
             )
     return sorted(comparisons, key=lambda comparison: comparison.name)

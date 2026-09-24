@@ -33,7 +33,7 @@ def test_configuration_separates_the_factors_that_were_varied(corpus):
     configs = {run.run_id: run.config for run in corpus.runs}
     assert "temperature=0.8" in configs["mcpqa:2026-09-18-llama3-8b-baseline-temperature-0.8"]
     assert "temperature=0" in configs["mcpqa:2026-09-18-llama3-8b-baseline"]
-    assert "harness-v1" in configs["mcpqa:archive__2026-09-18-harness-v1__llama3-8b-baseline"]
+    assert "harness=v1" in configs["mcpqa:archive__2026-09-18-harness-v1__llama3-8b-baseline"]
     clean = configs["lab:experiments__2026-09-22-qwen3-8b__baseline"]
     limited = configs["lab:experiments__archive__2026-09-22-qwen3-8b-120s-wall-clock__baseline"]
     assert "time_limit=300" in clean and "time_limit=120" in limited

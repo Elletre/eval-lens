@@ -26,3 +26,4 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run mypy
       - run: uv run pytest -q
+      - run: uv run eval-lens report --out /tmp/report.md && diff -u REPORT.md /tmp/report.md

@@ -109,6 +109,6 @@ def _config(name: str, summary: dict[str, Any]) -> str:
     """What two runs must share before their difference means anything."""
     model = str(summary.get("model", ""))
     temperature = model.partition(" at temperature ")[2] or "0"
-    harness = "harness-v1" if "harness-v1" in name else "harness-v2"
+    harness = "v1" if "harness-v1" in name else "v2"
     repeats = summary.get("repeats", 3)
-    return f"temperature={temperature};repeats={repeats};{harness}"
+    return f"temperature={temperature};repeats={repeats};harness={harness}"
