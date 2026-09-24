@@ -16,6 +16,7 @@ from typing import Any
 
 from chdb import session as chdb_session
 
+from eval_lens.comparisons import Comparison
 from eval_lens.model import Corpus
 
 SCHEMA = Path(__file__).parent / "schema.sql"
@@ -34,6 +35,7 @@ STRUCTURES = {
     "tool_calls": (
         "run_id String, case_id String, repeat UInt16, seq UInt16, name String, ok UInt8"
     ),
+    "comparisons": ("name String, project String, control String, candidate String, factor String"),
 }
 
 
@@ -55,12 +57,13 @@ class Store:
         payload = str(result).strip()
         return [json.loads(line) for line in payload.splitlines() if line.strip()]
 
-    def load(self, corpus: Corpus) -> None:
+    def load(self, corpus: Corpus, comparisons: list[Comparison] | None = None) -> None:
         """Replace the contents with this corpus. Loading twice must not double anything."""
         rows = {
             "runs": [asdict(run) for run in corpus.runs],
             "trials": [_trial_row(trial) for trial in corpus.trials],
             "tool_calls": [asdict(call) | {"ok": int(call.ok)} for call in corpus.tool_calls],
+            "comparisons": [asdict(comparison) for comparison in comparisons or []],
         }
         with TemporaryDirectory() as directory:
             for table, values in rows.items():
