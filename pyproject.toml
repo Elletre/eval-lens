@@ -46,9 +46,14 @@ strict = true
 files = ["src/eval_lens"]
 
 [[tool.mypy.overrides]]
-# chDB ships no type information; its query API is a single function.
+# chDB ships no type information; its session API is three untyped methods.
 module = ["chdb", "chdb.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# The one module allowed to call into that untyped API, so the rest stays strict.
+module = ["eval_lens.store"]
+disallow_untyped_calls = false
 
 [tool.pytest.ini_options]
 minversion = "8.0"
