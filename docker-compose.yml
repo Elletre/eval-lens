@@ -1,0 +1,20 @@
+# Optional. The queries in sql/ run against embedded ClickHouse (chDB) by default,
+# which is what CI and `eval-lens report` use — no server, no container.
+# This file exists for poking at the same data interactively:
+#
+#   docker compose up -d
+#   uv run eval-lens ingest --clickhouse-url http://localhost:8123
+#   docker compose exec clickhouse clickhouse-client
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.8
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      CLICKHOUSE_DB: eval_lens
+      CLICKHOUSE_USER: eval_lens
+      CLICKHOUSE_PASSWORD: eval_lens
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ulimits:
+      nofile: { soft: 262144, hard: 262144 }
