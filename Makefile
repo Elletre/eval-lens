@@ -1,4 +1,4 @@
-.PHONY: help install lint fmt types test check
+.PHONY: help install lint fmt types test report assets check
 
 help:
 	@grep -E '^[a-z-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-9s\033[0m %s\n", $$1, $$2}'
@@ -22,5 +22,8 @@ test: ## Run the tests
 
 report: ## Regenerate REPORT.md from the corpus
 	uv run eval-lens report
+
+assets: ## Regenerate the generated picture
+	uv run python tools/trace_svg.py
 
 check: lint types test ## What CI runs
