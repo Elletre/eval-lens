@@ -157,6 +157,7 @@ def export_run(
                     child.set_attribute("gen_ai.operation.name", "execute_tool")
                     child.set_attribute("gen_ai.tool.name", call.name)
                     child.set_attribute("eval.tool.ok", call.ok)
+                    child.set_attribute("langfuse.session.id", run.run_id)
                 exported_calls += 1
         clock += duration
 

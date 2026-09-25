@@ -71,10 +71,9 @@ def test_only_a_harness_stop_makes_a_span_an_error(spans):
 
 
 def test_one_run_arrives_as_one_session(spans):
+    """Every span, not only the roots: a viewer groups children by their own attribute too."""
     _, exported = spans
-    assert {span.attributes["langfuse.session.id"] for span in exported if span.parent is None} == {
-        RUN
-    }
+    assert {span.attributes["langfuse.session.id"] for span in exported} == {RUN}
 
 
 def test_langfuse_keys_become_basic_auth_over_otlp_http():

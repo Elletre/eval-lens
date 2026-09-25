@@ -66,6 +66,11 @@ All 81 trials of one run arrive under one `langfuse.session.id`, so a run reads 
 rather than as eighty-one unrelated traces. That is the only vendor-specific attribute in the
 exporter; every other receiver ignores it.
 
+Sent to Langfuse Cloud on 25 September 2026, one run of 81 trials arrived as 81 `AGENT`
+observations named `invoke_agent clean`, each with its `TOOL` children and its recorded
+duration, all carrying the run id as the session. The conventions do the work: nothing in
+Langfuse was configured to understand this project.
+
 ## Checked without a vendor
 
 [`tests/test_otlp_wire.py`](../tests/test_otlp_wire.py) starts an OTLP receiver on a loopback
