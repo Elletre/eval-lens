@@ -7,6 +7,8 @@ disagree.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from eval_lens import metrics, queries
 from eval_lens.comparisons import Comparison
 from eval_lens.model import Corpus
@@ -31,20 +33,42 @@ about the suite; which policy is better is a question these runs already answere
 """
 
 
-def render(store: Store, corpus: Corpus, comparisons: list[Comparison]) -> str:
+def render(
+    store: Store,
+    corpus: Corpus,
+    comparisons: list[Comparison],
+    nulls: list[Comparison] | None = None,
+) -> str:
     parts = [
         HEADER,
         _corpus(store, comparisons),
         _information(store),
         _noise(store),
         _drift(store),
+        _null(corpus, nulls or []),
         _cost(store),
         _variance(corpus, comparisons),
         _failures(store),
         _pruning(corpus, comparisons),
         LIMITS,
     ]
-    return "\n".join(parts).rstrip() + "\n"
+    return "\n".join(_numbered(part for part in parts if part)).rstrip() + "\n"
+
+
+def _numbered(parts: Iterable[str]) -> list[str]:
+    """Number the question sections in the order they appear.
+
+    Which sections exist depends on the corpus — an A/A pair needs one variant run twice —
+    and a number written into the heading would renumber the whole file by hand.
+    """
+    numbered: list[str] = []
+    counter = 0
+    for part in parts:
+        if part.startswith("## ") and part not in (HEADER, LIMITS) and "## The corpus" not in part:
+            counter += 1
+            part = part.replace("## ", f"## {counter}. ", 1)
+        numbered.append(part)
+    return numbered
 
 
 PROJECT_SHORT = {"agent-eval-lab": "lab", "mcp-connector-testkit": "kit"}
@@ -154,7 +178,7 @@ def _information(store: Store) -> str:
         for row in families
     )
     return (
-        "## 1. Which cases carry information\n\n"
+        "## Which cases carry information\n\n"
         "A case is **informative** when its pass rate differs between the two sides of a "
         "comparison. **Saturated** and **floored** cases never differ because they always pass "
         "or always fail; **quiet** ones move between runs but never between the sides of a "
@@ -185,7 +209,7 @@ def _noise(store: Store) -> str:
         ],
     )
     return (
-        "## 2. How much the instrument disagrees with itself\n\n"
+        "## How much the instrument disagrees with itself\n\n"
         "Repeats of one case, under settings that did not change between them.\n\n" + table + "\n"
     )
 
@@ -207,11 +231,43 @@ def _drift(store: Store) -> str:
     )
     worst = max((row["spread"] for row in rows), default=0.0)
     return (
-        "## 3. How far the same variant moves between runs\n\n"
+        "## How far the same variant moves between runs\n\n"
         "Nothing about the policy changed between these runs — only the configuration around "
         "it, and the sampling nobody pinned.\n\n" + table + "\n\n"
         f"The largest of these, {worst:.0%}, is the floor under any difference these suites "
         "report: an effect smaller than that cannot be told from the instrument shifting.\n"
+    )
+
+
+def _null(corpus: Corpus, nulls: list[Comparison]) -> str:
+    """The A/A pair: the same policy against itself, scored like any other comparison."""
+    rows = metrics.null_results(corpus, nulls) if nulls else []
+    if not rows:
+        return ""
+    labels = short_labels(nulls)
+    table = _table(
+        ["Pair", "Cases", "Cases that moved", "Δ pass rate", "p"],
+        [
+            [
+                f"`{labels[row.comparison]}`",
+                str(row.cases),
+                f"{row.moved} ({row.false_positives:.0%})",
+                f"{row.delta:+.0%}",
+                f"{row.p:.3f}",
+            ]
+            for row in rows
+        ],
+    )
+    worst = max(rows, key=lambda row: row.false_positives)
+    return (
+        "## What the suite says when nothing changed\n\n"
+        "One variant was run twice under identical settings, and the pair was then scored "
+        "exactly as a real comparison is scored. Everything it reports is the instrument: the "
+        "right answer is no difference and no informative case.\n\n" + table + "\n\n"
+        f"{worst.false_positives:.0%} of the cases in that pair separated its two sides with "
+        "nothing between them to separate. That is the price of calling a case informative on "
+        "one difference alone, and the reason the pruning experiment below keeps a case only "
+        "when some other comparison — never the one being recomputed — found it informative.\n"
     )
 
 
@@ -248,7 +304,7 @@ def _cost(store: Store) -> str:
             for row in rows
         ],
     )
-    return "## 4. What the silence costs\n\n" + table + "\n"
+    return "## What the silence costs\n\n" + table + "\n"
 
 
 def _variance(corpus: Corpus, comparisons: list[Comparison]) -> str:
@@ -267,7 +323,7 @@ def _variance(corpus: Corpus, comparisons: list[Comparison]) -> str:
         ],
     )
     return (
-        "## 5. Where the spread in verdicts comes from\n\n"
+        "## Where the spread in verdicts comes from\n\n"
         "A crude decomposition of a binary outcome, reported as a direction rather than a "
         "measurement: the residual absorbs everything the other two terms cannot explain.\n\n"
         + table
@@ -291,7 +347,7 @@ def _failures(store: Store) -> str:
         for row in silent
     )
     return (
-        "## 6. What actually fails\n\n" + table + "\n\n"
+        "## What actually fails\n\n" + table + "\n\n"
         "Gates that are recorded on every trial and have never once failed:\n\n"
         + (listed or "- none")
         + "\n\nEither nothing in the suite breaks that rule, or the rule is written so that "
@@ -321,7 +377,7 @@ def _pruning(corpus: Corpus, comparisons: list[Comparison]) -> str:
     survived = sum(row.same_verdict for row in rows)
     saved = [row.time_saved for row in rows]
     return (
-        "## 7. Would the conclusions survive a shorter suite?\n\n"
+        "## Would the conclusions survive a shorter suite?\n\n"
         "Each comparison recomputed on the cases that *other* comparisons found informative — "
         "never on the ones it decided itself.\n\n" + table + "\n\n"
         f"Same verdict at 5% in {survived} of {len(rows)} comparisons, with "

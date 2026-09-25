@@ -9,6 +9,10 @@ wall clock alone moved one published conclusion, and the harness version moved a
 Within a comparable group, the control variant is the run everything else is measured
 against. Each project names its control differently, which is the only thing this
 module has to be told.
+
+A group can also hold the same variant twice. That pair is not a comparison — nothing
+differs between its sides — so it is kept apart, as the A/A control: whatever it reports
+is what this instrument reports when the answer is known to be nothing.
 """
 
 from __future__ import annotations
@@ -35,6 +39,8 @@ class Comparison:
     """What differs: the seeded defect, the prompt policy under test."""
     config: str = ""
     """The settings both sides share, kept so a report can say which ones varied."""
+    null_pair: bool = False
+    """Both sides are the same variant: an A/A control rather than a comparison."""
 
     @property
     def runs(self) -> tuple[str, str]:
@@ -46,18 +52,31 @@ def comparable_key(run: Run) -> tuple[str, ...]:
 
 
 def derive(corpus: Corpus) -> list[Comparison]:
-    """Every pair inside a comparable group that differs only in variant.
+    """Every pair inside a comparable group that differs in exactly one variant.
 
     Fixture runs are excluded: an oracle-driven control and a deliberately corrupted
     one prove that the harness reacts, and comparing them measures nothing about a
     model.
     """
+    return [pair for pair in _pairs(corpus) if not pair.null_pair]
+
+
+def null_pairs(corpus: Corpus) -> list[Comparison]:
+    """Pairs whose two sides are the same variant under the same settings.
+
+    An A/A control: the difference it reports is the instrument, not the policy, and the
+    cases it separates were separated by sampling alone.
+    """
+    return [pair for pair in _pairs(corpus) if pair.null_pair]
+
+
+def _pairs(corpus: Corpus) -> list[Comparison]:
     groups: dict[tuple[str, ...], list[Run]] = defaultdict(list)
     for run in corpus.runs:
         if run.kind == "model":
             groups[comparable_key(run)].append(run)
 
-    comparisons: list[Comparison] = []
+    pairs: list[Comparison] = []
     for runs in groups.values():
         control_variant = CONTROL_VARIANTS.get(runs[0].project)
         control = next((run for run in runs if run.variant == control_variant), None)
@@ -66,14 +85,17 @@ def derive(corpus: Corpus) -> list[Comparison]:
         for run in runs:
             if run.run_id == control.run_id:
                 continue
-            comparisons.append(
+            repeated = run.variant == control.variant
+            label = f"{run.variant} again" if repeated else run.variant
+            pairs.append(
                 Comparison(
-                    name=f"{run.project}: {control.variant} → {run.variant} ({run.config})",
+                    name=f"{run.project}: {control.variant} → {label} ({run.config})",
                     project=run.project,
                     control=control.run_id,
                     candidate=run.run_id,
-                    factor=run.variant,
+                    factor=label,
                     config=run.config,
+                    null_pair=repeated,
                 )
             )
-    return sorted(comparisons, key=lambda comparison: comparison.name)
+    return sorted(pairs, key=lambda pair: pair.name)

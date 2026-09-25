@@ -4,13 +4,14 @@ from pathlib import Path
 
 import pytest
 
-from eval_lens.comparisons import Comparison, derive
+from eval_lens.comparisons import Comparison, derive, null_pairs
 from eval_lens.ingest import read_corpus
 from eval_lens.metrics import (
     case_cost,
     case_information,
     drift,
     failure_profile,
+    null_results,
     pruning_experiment,
     repeat_noise,
     sign_test_exact,
@@ -23,10 +24,16 @@ from eval_lens.model import Corpus, Run, Trial
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def run(run_id: str, variant: str, config: str = "c=1", kind: str = "model") -> Run:
+def run(
+    run_id: str,
+    variant: str,
+    config: str = "c=1",
+    kind: str = "model",
+    project: str = "p",
+) -> Run:
     return Run(
         run_id=run_id,
-        project="p",
+        project=project,
         suite="s",
         suite_version="v1",
         variant=variant,
@@ -129,6 +136,35 @@ def test_a_fixture_run_is_never_compared_with_a_model_run():
         trials=[trial("a", "one", 1, passed=True), trial("b", "one", 1, passed=False)],
     )
     assert derive(corpus) == []
+
+
+def test_the_same_variant_twice_is_a_control_and_not_a_comparison():
+    """An A/A pair answers a different question, so it must not enter the comparisons."""
+    lab = {"project": "agent-eval-lab"}
+    corpus = Corpus(
+        runs=[
+            run("a", "baseline", **lab),
+            run("b", "baseline", **lab),
+            run("c", "improved", **lab),
+        ],
+        trials=[
+            trial("a", "moves", 1, passed=False),
+            trial("b", "moves", 1, passed=False),
+            trial("c", "moves", 1, passed=True),
+            trial("a", "wobbles", 1, passed=True),
+            trial("b", "wobbles", 1, passed=False),
+            trial("c", "wobbles", 1, passed=True),
+        ],
+    )
+    assert [comparison.factor for comparison in derive(corpus)] == ["improved"]
+
+    (pair,) = null_pairs(corpus)
+    assert pair.null_pair and pair.factor == "baseline again"
+
+    (result,) = null_results(corpus, [pair])
+    assert (result.cases, result.moved) == (2, 1)
+    assert result.false_positives == 0.5, "the criterion flags a case with nothing to find"
+    assert result.delta == -0.5 and result.p == 1.0
 
 
 def test_the_real_corpus_yields_the_comparisons_its_projects_published():

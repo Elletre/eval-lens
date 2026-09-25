@@ -394,6 +394,48 @@ def sign_test_exact(up: int, down: int) -> float:
 
 
 @dataclass(frozen=True)
+class NullResult:
+    """What a comparison reports when its two sides are the same thing."""
+
+    comparison: str
+    cases: int
+    moved: int
+    """Cases whose pass rate differs between two runs of one variant."""
+    delta: float
+    p: float
+
+    @property
+    def false_positives(self) -> float:
+        """Share of cases the informativeness criterion would flag with nothing to find."""
+        return self.moved / self.cases if self.cases else 0.0
+
+
+def null_results(corpus: Corpus, pairs: list[Comparison]) -> list[NullResult]:
+    """The A/A pairs, scored exactly as a real comparison would be scored."""
+    rates = case_rates(corpus.trials)
+    results: list[NullResult] = []
+    for pair in pairs:
+        cases = sorted(
+            case
+            for run_id, case in rates
+            if run_id == pair.control and (pair.candidate, case) in rates
+        )
+        if not cases:
+            continue
+        moved = sum(rates[(pair.candidate, c)] != rates[(pair.control, c)] for c in cases)
+        results.append(
+            NullResult(
+                comparison=pair.name,
+                cases=len(cases),
+                moved=moved,
+                delta=_delta(rates, pair, cases),
+                p=_sign_test(rates, pair, cases),
+            )
+        )
+    return results
+
+
+@dataclass(frozen=True)
 class PrunedComparison:
     """One published comparison, recomputed on a suite with the silence removed."""
 

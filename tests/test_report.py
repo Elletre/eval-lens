@@ -7,7 +7,7 @@ from pathlib import Path
 
 from eval_lens import report
 from eval_lens.cli import main
-from eval_lens.comparisons import derive
+from eval_lens.comparisons import derive, null_pairs
 from eval_lens.ingest import read_corpus
 from eval_lens.store import Store
 
@@ -20,7 +20,7 @@ def test_the_committed_report_is_current():
     try:
         comparisons = derive(corpus)
         store.load(corpus, comparisons)
-        rendered = report.render(store, corpus, comparisons)
+        rendered = report.render(store, corpus, comparisons, null_pairs(corpus))
     finally:
         store.close()
     committed = (ROOT / "REPORT.md").read_text()

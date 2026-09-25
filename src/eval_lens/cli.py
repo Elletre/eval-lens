@@ -9,7 +9,7 @@ from pathlib import Path
 from opentelemetry.sdk.trace.export import ConsoleSpanExporter, SpanExporter
 
 from eval_lens import otlp, queries, report
-from eval_lens.comparisons import Comparison, derive
+from eval_lens.comparisons import Comparison, derive, null_pairs
 from eval_lens.ingest import read_corpus
 from eval_lens.model import Corpus
 from eval_lens.store import SCHEMA, Store, tables, write
@@ -64,7 +64,7 @@ def main(argv: list[str] | None = None) -> int:
             for row in store.query(queries.read(args.name)):
                 print(json.dumps(row, ensure_ascii=False))
         elif args.command == "report":
-            text = report.render(store, corpus, comparisons)
+            text = report.render(store, corpus, comparisons, null_pairs(corpus))
             args.out.write_text(text, encoding="utf-8")
             print(f"wrote {args.out}")
         elif args.command == "export":
