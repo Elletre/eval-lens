@@ -6,20 +6,23 @@ import argparse
 import json
 from pathlib import Path
 
-from eval_lens import queries, report
-from eval_lens.comparisons import derive
+from opentelemetry.sdk.trace.export import ConsoleSpanExporter, SpanExporter
+
+from eval_lens import otlp, queries, report
+from eval_lens.comparisons import Comparison, derive
 from eval_lens.ingest import read_corpus
+from eval_lens.model import Corpus
 from eval_lens.store import Store
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def _loaded(data: Path, database: Path | None) -> tuple[Store, object, list[object]]:
+def _loaded(data: Path, database: Path | None) -> tuple[Store, Corpus, list[Comparison]]:
     corpus = read_corpus(data)
     comparisons = derive(corpus)
     store = Store(database)
     store.load(corpus, comparisons)
-    return store, corpus, comparisons  # type: ignore[return-value]
+    return store, corpus, comparisons
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -33,6 +36,13 @@ def main(argv: list[str] | None = None) -> int:
     asked.add_argument("name", nargs="?", help="query name; omit to list them")
     written = commands.add_parser("report", help="write the report")
     written.add_argument("--out", type=Path, default=ROOT / "REPORT.md")
+    traced = commands.add_parser("trace", help="replay one recorded run as OTLP spans")
+    traced.add_argument("run", nargs="?", help="run_id; omit to list them")
+    traced.add_argument(
+        "--console",
+        action="store_true",
+        help="print the spans instead of sending them anywhere",
+    )
 
     args = parser.parse_args(argv)
     if args.command == "query" and not args.name:
@@ -52,11 +62,43 @@ def main(argv: list[str] | None = None) -> int:
             for row in store.query(queries.read(args.name)):
                 print(json.dumps(row, ensure_ascii=False))
         elif args.command == "report":
-            text = report.render(store, corpus, comparisons)  # type: ignore[arg-type]
+            text = report.render(store, corpus, comparisons)
             args.out.write_text(text, encoding="utf-8")
             print(f"wrote {args.out}")
+        elif args.command == "trace":
+            return _trace(corpus, args.run, console=args.console)
     finally:
         store.close()
+    return 0
+
+
+def _trace(corpus: Corpus, run_id: str | None, *, console: bool) -> int:
+    """Send one run to a receiver, or say which runs there are to send."""
+    runs = sorted(run.run_id for run in corpus.runs)
+    if not run_id:
+        print("\n".join(runs))
+        return 0
+    if run_id not in runs:
+        print(f"no run named {run_id}; run `eval-lens trace` for the list")
+        return 2
+
+    if console:
+        exporter: SpanExporter = ConsoleSpanExporter()
+        destination = "stdout"
+    else:
+        try:
+            target = otlp.receiver()
+        except KeyError as missing:
+            print(missing.args[0])
+            return 2
+        exporter = target.exporter()
+        destination = target.origin
+
+    replay = otlp.export_run(corpus, run_id, exporter)
+    print(
+        f"sent {replay.trials} invocations and {replay.tool_calls} tool calls "
+        f"({replay.spans} spans) to {destination}"
+    )
     return 0
 
 

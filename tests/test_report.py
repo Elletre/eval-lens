@@ -41,3 +41,18 @@ def test_ingest_and_query_run_from_the_command_line(capsys):
     assert "case_information" in capsys.readouterr().out
     assert main(["query", "silence_cost"]) == 0
     assert "informative_cases" in capsys.readouterr().out
+
+
+def test_trace_lists_the_runs_and_replays_one_without_a_receiver(capsys, monkeypatch):
+    for variable in ("LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "OTEL_EXPORTER_OTLP_ENDPOINT"):
+        monkeypatch.delenv(variable, raising=False)
+    assert main(["trace"]) == 0
+    listed = capsys.readouterr().out
+    assert "mcpqa:2026-09-18-llama3-8b-baseline" in listed
+
+    assert main(["trace", "nope"]) == 2
+    assert main(["trace", "mcpqa:2026-09-18-llama3-8b-baseline", "--console"]) == 0
+    assert "sent 81 invocations" in capsys.readouterr().out
+
+    assert main(["trace", "mcpqa:2026-09-18-llama3-8b-baseline"]) == 2
+    assert "no OTLP receiver configured" in capsys.readouterr().out
