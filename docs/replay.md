@@ -66,6 +66,19 @@ All 81 trials of one run arrive under one `langfuse.session.id`, so a run reads 
 rather than as eighty-one unrelated traces. That is the only vendor-specific attribute in the
 exporter; every other receiver ignores it.
 
+## Checked without a vendor
+
+[`tests/test_otlp_wire.py`](../tests/test_otlp_wire.py) starts an OTLP receiver on a loopback
+port, runs this command against it and decodes the protobuf that arrives: the signal path, the
+content type, the extra headers, every span, and — with `LANGFUSE_PUBLIC_KEY` and
+`LANGFUSE_SECRET_KEY` set — the request landing on `/api/public/otel/v1/traces` with Basic auth
+over the two keys. It needs no account and no network, and it fails if any of that changes.
+
+The picture in the README is drawn from the exporter's own spans by
+[`tools/trace_svg.py`](../tools/trace_svg.py), and a test regenerates it. There is no
+screenshot: a screenshot proves a UI looked a certain way once, and nobody reading this
+repository can reproduce it.
+
 ## What the timestamps are
 
 **The durations are real. The times are not.** The trials are laid end to end from the moment
