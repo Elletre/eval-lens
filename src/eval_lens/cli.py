@@ -12,7 +12,7 @@ from eval_lens import otlp, queries, report
 from eval_lens.comparisons import Comparison, derive
 from eval_lens.ingest import read_corpus
 from eval_lens.model import Corpus
-from eval_lens.store import Store
+from eval_lens.store import SCHEMA, Store, tables, write
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -36,6 +36,8 @@ def main(argv: list[str] | None = None) -> int:
     asked.add_argument("name", nargs="?", help="query name; omit to list them")
     written = commands.add_parser("report", help="write the report")
     written.add_argument("--out", type=Path, default=ROOT / "REPORT.md")
+    dumped = commands.add_parser("export", help="write the tables as files a server can load")
+    dumped.add_argument("--out", type=Path, required=True, help="directory to write into")
     traced = commands.add_parser("trace", help="replay one recorded run as OTLP spans")
     traced.add_argument("run", nargs="?", help="run_id; omit to list them")
     traced.add_argument(
@@ -65,11 +67,21 @@ def main(argv: list[str] | None = None) -> int:
             text = report.render(store, corpus, comparisons)
             args.out.write_text(text, encoding="utf-8")
             print(f"wrote {args.out}")
+        elif args.command == "export":
+            print("\n".join(str(path) for path in store_files(corpus, comparisons, args.out)))
         elif args.command == "trace":
             return _trace(corpus, args.run, console=args.console)
     finally:
         store.close()
     return 0
+
+
+def store_files(corpus: Corpus, comparisons: list[Comparison], out: Path) -> list[Path]:
+    """The corpus as loadable files, schema included, so it can live in a real server."""
+    written = [path for path in write(tables(corpus, comparisons), out).values() if path]
+    schema = out / "schema.sql"
+    schema.write_text(SCHEMA.read_text(), encoding="utf-8")
+    return [schema, *written]
 
 
 def _trace(corpus: Corpus, run_id: str | None, *, console: bool) -> int:

@@ -4,8 +4,11 @@ from pathlib import Path
 
 import pytest
 
+from eval_lens import queries
+from eval_lens.cli import store_files
+from eval_lens.comparisons import derive
 from eval_lens.ingest import read_corpus
-from eval_lens.store import Store
+from eval_lens.store import STRUCTURES, Store
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -44,3 +47,28 @@ def test_a_trial_can_be_traced_back_to_the_file_it_came_from(store):
         "SELECT r.source AS source FROM trials AS t JOIN runs AS r ON t.run_id = r.run_id LIMIT 1"
     )[0]
     assert (ROOT / "data" / row["source"]).exists()
+
+
+def test_the_exported_files_load_back_into_the_same_numbers(store, tmp_path):
+    """The export is the migration path off chDB, so it has to be loadable, not just written."""
+    corpus = read_corpus(ROOT / "data")
+    files = store_files(corpus, derive(corpus), tmp_path / "export")
+    assert {path.name for path in files} == {
+        "schema.sql",
+        "runs.jsonl",
+        "trials.jsonl",
+        "tool_calls.jsonl",
+        "comparisons.jsonl",
+    }
+
+    reloaded = Store()
+    try:
+        for table, structure in STRUCTURES.items():
+            reloaded.query(
+                f"INSERT INTO {table} SELECT * FROM "
+                f"file('{tmp_path / 'export' / f'{table}.jsonl'}', JSONEachRow, '{structure}')"
+            )
+        question = queries.read("case_information")
+        assert reloaded.query(question) == store.query(question)
+    finally:
+        reloaded.close()

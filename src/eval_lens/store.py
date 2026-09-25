@@ -22,6 +22,8 @@ from eval_lens.model import Corpus
 SCHEMA = Path(__file__).parent / "schema.sql"
 DATABASE = "eval_lens"
 
+Row = dict[str, Any]
+
 STRUCTURES = {
     "runs": (
         "run_id String, project String, suite String, suite_version String, variant String, "
@@ -59,19 +61,11 @@ class Store:
 
     def load(self, corpus: Corpus, comparisons: list[Comparison] | None = None) -> None:
         """Replace the contents with this corpus. Loading twice must not double anything."""
-        rows = {
-            "runs": [asdict(run) for run in corpus.runs],
-            "trials": [_trial_row(trial) for trial in corpus.trials],
-            "tool_calls": [asdict(call) | {"ok": int(call.ok)} for call in corpus.tool_calls],
-            "comparisons": [asdict(comparison) for comparison in comparisons or []],
-        }
         with TemporaryDirectory() as directory:
-            for table, values in rows.items():
+            for table, path in write(tables(corpus, comparisons), Path(directory)).items():
                 self._session.query(f"TRUNCATE TABLE {DATABASE}.{table}")
-                if not values:
+                if path is None:
                     continue
-                path = Path(directory) / f"{table}.jsonl"
-                path.write_text("\n".join(json.dumps(value) for value in values))
                 self._session.query(
                     f"INSERT INTO {DATABASE}.{table} "
                     f"SELECT * FROM file('{path}', JSONEachRow, '{STRUCTURES[table]}')"
@@ -79,6 +73,30 @@ class Store:
 
     def close(self) -> None:
         self._session.close()
+
+
+def tables(corpus: Corpus, comparisons: list[Comparison] | None = None) -> dict[str, list[Row]]:
+    """The corpus as rows, in the column types the schema declares."""
+    return {
+        "runs": [asdict(run) for run in corpus.runs],
+        "trials": [_trial_row(trial) for trial in corpus.trials],
+        "tool_calls": [asdict(call) | {"ok": int(call.ok)} for call in corpus.tool_calls],
+        "comparisons": [asdict(comparison) for comparison in comparisons or []],
+    }
+
+
+def write(rows: dict[str, list[Row]], directory: Path) -> dict[str, Path | None]:
+    """One JSONEachRow file per table, which is what both chDB and a server can read."""
+    directory.mkdir(parents=True, exist_ok=True)
+    written: dict[str, Path | None] = {}
+    for table, values in rows.items():
+        if not values:
+            written[table] = None
+            continue
+        path = directory / f"{table}.jsonl"
+        path.write_text("\n".join(json.dumps(value) for value in values), encoding="utf-8")
+        written[table] = path
+    return written
 
 
 def _trial_row(trial: Any) -> dict[str, Any]:
