@@ -45,7 +45,7 @@ def render(
         _corpus(store, comparisons),
         _information(store),
         _noise(store),
-        _drift(store),
+        _drift(store, has_null_pair=bool(nulls)),
         _null(corpus, nulls or []),
         _cost(store),
         _variance(corpus, comparisons),
@@ -215,7 +215,7 @@ def _noise(store: Store) -> str:
     )
 
 
-def _drift(store: Store) -> str:
+def _drift(store: Store, has_null_pair: bool = False) -> str:
     rows = store.query(queries.read("drift"))
     table = _table(
         ["Project", "Dataset version", "Variant", "Runs", "Spread in pass rate"],
@@ -237,6 +237,12 @@ def _drift(store: Store) -> str:
         "it, and the sampling nobody pinned.\n\n" + table + "\n\n"
         f"The largest of these, {worst:.0%}, is the floor under any difference these suites "
         "report: an effect smaller than that cannot be told from the instrument shifting.\n"
+        + (
+            "\nIt is an upper bound on the sampling alone, because a setting moved between "
+            "most of these runs as well. The pair below is the one place where nothing moved.\n"
+            if has_null_pair
+            else ""
+        )
     )
 
 
