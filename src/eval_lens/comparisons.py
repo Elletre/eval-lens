@@ -79,9 +79,14 @@ def _pairs(corpus: Corpus) -> list[Comparison]:
     pairs: list[Comparison] = []
     for runs in groups.values():
         control_variant = CONTROL_VARIANTS.get(runs[0].project)
-        control = next((run for run in runs if run.variant == control_variant), None)
-        if control is None:
+        candidates = [run for run in runs if run.variant == control_variant]
+        if not candidates:
             continue
+        # The earliest run of the control variant is the control, and a tie is broken by
+        # run_id. Where a variant was run twice, which side is the control decides what
+        # every comparison in the group is measured against, and that must not depend on
+        # the order files happened to be read in.
+        control = min(candidates, key=lambda run: (run.recorded_at, run.run_id))
         for run in runs:
             if run.run_id == control.run_id:
                 continue

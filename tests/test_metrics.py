@@ -1,5 +1,6 @@
 """Metric definitions, on cases small enough to check by hand."""
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -261,3 +262,17 @@ def test_pruning_keeps_a_case_that_moved_in_another_comparison():
     assert results["here"].kept_cases == 1 and results["here"].dropped_cases == 1
     assert results["here"].delta_kept == pytest.approx(1.0)
     assert results["here"].time_saved == pytest.approx(0.5)
+
+
+def test_which_run_is_the_control_does_not_depend_on_read_order():
+    """With a variant run twice, the earliest is the control, whatever order it arrives in."""
+    lab = {"project": "agent-eval-lab"}
+    first = run("early", "baseline", **lab)
+    second = replace(run("late", "baseline", **lab), recorded_at="2026-09-30")
+    candidate = run("c", "improved", **lab)
+    trials = [trial(run_id, "one", 1, passed=True) for run_id in ("early", "late", "c")]
+
+    forwards = derive(Corpus(runs=[first, second, candidate], trials=trials))
+    backwards = derive(Corpus(runs=[candidate, second, first], trials=trials))
+    assert [comparison.control for comparison in forwards] == ["early"]
+    assert forwards == backwards
