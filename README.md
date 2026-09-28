@@ -37,8 +37,8 @@ worth measuring: the findings below are not about a careless suite.
 ## What it found
 
 Read [**REPORT.md**](REPORT.md) — it is generated, and CI fails if it drifts from the data.
-Every number in it comes from a query in [`sql/`](sql) or its twin in
-[`metrics.py`](src/eval_lens/metrics.py), and a test holds the two equal.
+Its descriptive sections come from the queries in [`sql/`](sql), each with a twin in
+[`metrics.py`](src/eval_lens/metrics.py) that a test holds equal to it.
 
 - **A third to a half of each suite never separated anything.** Of the connector suite's 27
   cases at its current dataset version, 12 are informative and 15 are saturated, floored or
