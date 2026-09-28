@@ -125,6 +125,10 @@ criterion is wrong, which is worth as much as a pruning that does not.
 - **No confidence intervals on the metrics themselves.** An interval on "35% of cases
   disagree with their own repeats" would need repeats of the whole run, which this corpus does
   not have. The A/A pair is the one place where a null distribution exists at all.
-- **Two implementations.** Every metric is computed twice — in Python on normalised rows, and
-  in ClickHouse SQL in [`sql/`](../sql) — and a test holds the two equal. It is both a check
-  and the demonstration: a query nobody verified is an instrument nobody calibrated.
+- **Two implementations, where two are possible.** The seven descriptive measurements —
+  case information, repeat noise, drift, cost, the cost of silence, the failure profile and
+  the silent gates — are computed twice, in Python on normalised rows and in ClickHouse SQL in
+  [`sql/`](../sql), and a test holds the two equal row for row. The variance split, the A/A
+  scoring and the pruning experiment are Python only: each one recomputes a comparison against
+  a different set of cases rather than describing the stored rows, and a SQL version would be a
+  demonstration rather than a check.

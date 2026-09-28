@@ -109,9 +109,12 @@ configuration fingerprint includes the sampling temperature, the wall clock, the
 version and the scorer version — in this corpus that is not pedantry: the wall clock alone
 moved one published conclusion, and the harness version moved another.
 
-**Every metric is written twice**, in Python and in ClickHouse SQL, and
-[a test](tests/test_sql_parity.py) holds the two equal. A query nobody verified is an
-instrument nobody calibrated, which is the whole subject of this repository.
+**The seven descriptive measurements are written twice**, in Python and in ClickHouse SQL,
+and [a test](tests/test_sql_parity.py) holds the two equal, row for row. A query nobody
+verified is an instrument nobody calibrated, which is the whole subject of this repository.
+The two experiments — the variance split and the pruning recomputation — exist only in Python:
+they are not descriptions of the stored rows but re-runs of a comparison under a different
+suite, and expressing that as a query would be a demonstration rather than a check.
 
 **Why ClickHouse for 1,179 rows.** It is overkill, and that is said out loud. It is here
 because the schema and the queries *are* the artifact: they are what moves to a server when
