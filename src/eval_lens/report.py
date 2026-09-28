@@ -45,7 +45,7 @@ def render(
         _corpus(store, comparisons, nulls or []),
         _information(store),
         _noise(store),
-        _drift(store, has_null_pair=bool(nulls)),
+        _drift(store, null_pairs=len(nulls or [])),
         _null(corpus, nulls or []),
         _cost(store),
         _variance(corpus, comparisons),
@@ -225,7 +225,7 @@ def _noise(store: Store) -> str:
     )
 
 
-def _drift(store: Store, has_null_pair: bool = False) -> str:
+def _drift(store: Store, null_pairs: int = 0) -> str:
     rows = store.query(queries.read("drift"))
     table = _table(
         ["Project", "Dataset version", "Variant", "Runs", "Spread in pass rate"],
@@ -249,8 +249,13 @@ def _drift(store: Store, has_null_pair: bool = False) -> str:
         "report: an effect smaller than that cannot be told from the instrument shifting.\n"
         + (
             "\nIt is an upper bound on the sampling alone, because a setting moved between "
-            "most of these runs as well. The pair below is the one place where nothing moved.\n"
-            if has_null_pair
+            "most of these runs as well. "
+            + (
+                "The pair below is the one place where nothing moved.\n"
+                if null_pairs == 1
+                else "The pairs below are the only runs with nothing between them at all.\n"
+            )
+            if null_pairs
             else ""
         )
     )
@@ -288,6 +293,14 @@ def _null(corpus: Corpus, nulls: list[Comparison]) -> str:
             "separate. That is the price of calling a case informative on one difference "
             "alone, and the reason the pruning experiment below keeps a case only when some "
             "other comparison — never the one being recomputed — found it informative."
+        )
+    quietest = min(rows, key=lambda row: row.false_positives)
+    if quietest.moved == 0 and worst.moved > 0:
+        closing += (
+            f" The same procedure on `{labels[quietest.comparison]}` flagged nothing at all. "
+            "What differs between those two answers is not the criterion, which is identical, "
+            "but the suite it was applied to: the one that disagrees with its own repeats "
+            "hands any criterion something to find."
         )
     return (
         "## What the suite says when nothing changed\n\n"

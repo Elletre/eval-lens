@@ -24,7 +24,7 @@ it current.*
 
 ## The corpus is real, and it is not this project's
 
-Two public repositories of mine recorded **1,260 trials** across 17 runs: an
+Two public repositories of mine recorded **1,341 trials** across 18 runs: an
 [MCP connector test kit](https://github.com/Elletre/mcp-connector-testkit) scoring a connector
 against seeded defects, and an [agent evaluation lab](https://github.com/Elletre/agent-eval-lab)
 scoring an assistant against deterministic gates. Their artifacts are vendored here verbatim,
@@ -49,15 +49,22 @@ Its descriptive sections come from the queries in [`sql/`](sql), each with a twi
 - **The instrument disagrees with itself on 35% of the cases it repeats** (assistant suite,
   `qwen3:8b`), against 7% for the connector suite's more mechanical checks.
 - **The same policy moves 14 points between runs** when nothing about the policy changed —
-  the floor under any difference these suites can claim. An A/A pair separates how much of
-  that is sampling: the connector suite, run again ten days later with nothing changed,
-  reproduced all 27 cases exactly.
+  the floor under any difference these suites can claim.
+- **Run against itself, one suite reports nothing and the other reports 41%.** Each suite was
+  run a second time under identical settings and the pair scored exactly as a real comparison.
+  The connector suite reproduced all 27 cases exactly: zero cases "moved". The assistant suite
+  moved on 11 of 27 with nothing between the two sides to find. The criterion was the same in
+  both; the suite was not.
 - **22% to 39% of the running time goes to cases that answer nothing.**
 - **Two gates recorded on 565 trials have never failed.** Either nothing in the suite breaks
   those rules, or the rules are written so that nothing can. A pass rate cannot see the
   difference.
 - **The thing under test is usually the smallest term** in the spread of verdicts: cases differ
   from each other far more than the variants differ from each other.
+
+That last pair is the control everything else needed. A suite that cannot repeat itself hands
+any criterion something to discover, and 41% is what that costs on a suite whose repeats
+disagree with themselves a third of the time.
 
 And the claim the project was built to test, fixed in writing before it was computed:
 
@@ -80,7 +87,7 @@ make check                      # lint, types, tests, and the report diff
 ```
 
 ```bash
-uv run eval-lens ingest         # 17 runs, 1260 trials, 7 comparisons
+uv run eval-lens ingest         # 18 runs, 1341 trials, 7 comparisons
 uv run eval-lens query          # the questions, by name
 uv run eval-lens query silence_cost
 uv run eval-lens report         # regenerate REPORT.md
@@ -119,7 +126,7 @@ The two experiments — the variance split and the pruning recomputation — exi
 they are not descriptions of the stored rows but re-runs of a comparison under a different
 suite, and expressing that as a query would be a demonstration rather than a check.
 
-**Why ClickHouse for 1,260 rows.** It is overkill, and that is said out loud. It is here
+**Why ClickHouse for 1,341 rows.** It is overkill, and that is said out loud. It is here
 because the schema and the queries *are* the artifact: they are what moves to a server when
 the corpus is a hundred million trials instead of a thousand, and `eval-lens export` writes the
 tables so that move is a command rather than a promise. chDB runs the same engine in process,

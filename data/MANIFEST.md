@@ -8,6 +8,7 @@ produced by this project, and nothing was edited on the way in.
 | [mcp-connector-testkit](https://github.com/Elletre/mcp-connector-testkit) | `53cac2ba40ce` | `evals/results/**/{trials.jsonl,summary.json}` |
 | [mcp-connector-testkit](https://github.com/Elletre/mcp-connector-testkit) | `92e3ac2` | `evals/results/2026-09-28-llama3-8b-clean-repeat/` |
 | [agent-eval-lab](https://github.com/Elletre/agent-eval-lab) | `49749313b9d7` | `experiments/**/*.json`, `reports/*.json` |
+| [agent-eval-lab](https://github.com/Elletre/agent-eval-lab) | `69d0c97` | `experiments/2026-09-28-qwen3-8b-repeat/baseline.json` |
 
 Two of these runs were made for this project rather than found here: a variant repeated under
 its own settings, so that the report has an A/A control. They were recorded in the source

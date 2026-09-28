@@ -36,7 +36,7 @@ def test_the_report_is_the_same_twice(tmp_path):
 
 def test_ingest_and_query_run_from_the_command_line(capsys):
     assert main(["ingest"]) == 0
-    assert "17 runs, 1260 trials, 7 comparisons" in capsys.readouterr().out
+    assert "18 runs, 1341 trials, 7 comparisons" in capsys.readouterr().out
     assert main(["query"]) == 0
     assert "case_information" in capsys.readouterr().out
     assert main(["query", "silence_cost"]) == 0

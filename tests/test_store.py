@@ -23,14 +23,14 @@ def store():
 
 def test_the_corpus_arrives_whole(store):
     counts = store.query("SELECT count() AS trials, uniqExact(run_id) AS runs FROM trials")[0]
-    assert counts == {"trials": 1260, "runs": 17}
-    assert store.query("SELECT count() AS n FROM runs")[0]["n"] == 17
-    assert store.query("SELECT count() AS n FROM tool_calls")[0]["n"] == 1436
+    assert counts == {"trials": 1341, "runs": 18}
+    assert store.query("SELECT count() AS n FROM runs")[0]["n"] == 18
+    assert store.query("SELECT count() AS n FROM tool_calls")[0]["n"] == 1553
 
 
 def test_loading_twice_does_not_double_anything(store):
     store.load(read_corpus(ROOT / "data"))
-    assert store.query("SELECT count() AS n FROM trials")[0]["n"] == 1260
+    assert store.query("SELECT count() AS n FROM trials")[0]["n"] == 1341
 
 
 def test_gates_survive_as_a_queryable_map(store):
@@ -39,7 +39,13 @@ def test_gates_survive_as_a_queryable_map(store):
     )
     gates = {row["gate"] for row in rows}
     assert {"expected_status", "exact_final_state", "authorized_write_attempts"} <= gates
-    assert all(row["n"] == 576 for row in rows), "every agent-eval-lab trial records every gate"
+    lab_trials = store.query(
+        "SELECT count() AS n FROM trials AS t INNER JOIN runs AS r USING (run_id) "
+        "WHERE r.project = 'agent-eval-lab'"
+    )[0]["n"]
+    assert {row["n"] for row in rows} == {lab_trials}, (
+        "every agent-eval-lab trial records every gate"
+    )
 
 
 def test_a_trial_can_be_traced_back_to_the_file_it_came_from(store):

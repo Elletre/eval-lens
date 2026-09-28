@@ -8,10 +8,10 @@ to it; the two experiments at the end are computed in Python alone.
 
 | Project | Runs | Models | Dataset versions | Trials | Cut short by a limit |
 | --- | --- | --- | --- | --- | --- |
-| agent-eval-lab | 8 | 2 | 3 | 576 | 11 |
+| agent-eval-lab | 9 | 2 | 3 | 657 | 11 |
 | mcp-connector-testkit | 9 | 1 | 2 | 684 | 0 |
 
-7 comparisons are derivable from it: pairs of runs that share project, dataset version, model and configuration and differ in exactly one variant. Fixture runs never enter a comparison. One A/A pair is derivable too: two runs of one variant with nothing between them, which is the control rather than a comparison.
+7 comparisons are derivable from it: pairs of runs that share project, dataset version, model and configuration and differ in exactly one variant. Fixture runs never enter a comparison. 2 A/A pairs are too: two runs of one variant with nothing between them, which is the control rather than a comparison.
 
 ## 1. Which cases carry information
 
@@ -20,7 +20,7 @@ A case is **informative** when its pass rate differs between the two sides of a 
 | Project | Dataset version | informative | quiet | saturated | floored |
 | --- | --- | --- | --- | --- | --- |
 | agent-eval-lab | 225849d195d0 | 15 | 3 | 0 | 9 |
-| agent-eval-lab | fdaa9a69d9c8 | 19 | 0 | 7 | 1 |
+| agent-eval-lab | fdaa9a69d9c8 | 19 | 2 | 6 | 0 |
 | mcp-connector-testkit | v1 | 0 | 0 | 18 | 9 |
 | mcp-connector-testkit | v2 | 12 | 4 | 4 | 7 |
 
@@ -35,7 +35,7 @@ Repeats of one case, under settings that did not change between them.
 
 | Project | Model | Cases with repeats | Cases whose repeats disagree | Share |
 | --- | --- | --- | --- | --- |
-| agent-eval-lab | ollama/qwen3:8b | 162 | 57 | 35% |
+| agent-eval-lab | ollama/qwen3:8b | 189 | 64 | 34% |
 | agent-eval-lab | oracle-fixture | 0 | 0 | — |
 | mcp-connector-testkit | ollama/llama3:latest | 225 | 13 | 6% |
 
@@ -45,7 +45,7 @@ Nothing about the policy changed between these runs — only the configuration a
 
 | Project | Dataset version | Variant | Runs | Spread in pass rate |
 | --- | --- | --- | --- | --- |
-| agent-eval-lab | fdaa9a69d9c8 | `baseline` | 2 | 14% |
+| agent-eval-lab | fdaa9a69d9c8 | `baseline` | 3 | 14% |
 | agent-eval-lab | fdaa9a69d9c8 | `improved` | 2 | 4% |
 | mcp-connector-testkit | v2 | `clean` | 4 | 4% |
 | mcp-connector-testkit | v2 | `untrusted-content-unmarked` | 2 | 4% |
@@ -53,7 +53,7 @@ Nothing about the policy changed between these runs — only the configuration a
 
 The largest of these, 14%, is the floor under any difference these suites report: an effect smaller than that cannot be told from the instrument shifting.
 
-It is an upper bound on the sampling alone, because a setting moved between most of these runs as well. The pair below is the one place where nothing moved.
+It is an upper bound on the sampling alone, because a setting moved between most of these runs as well. The pairs below are the only runs with nothing between them at all.
 
 ## 4. What the suite says when nothing changed
 
@@ -61,16 +61,17 @@ One variant was run twice under identical settings, and the pair was then scored
 
 | Pair | Cases | Cases that moved | Δ pass rate | p |
 | --- | --- | --- | --- | --- |
+| `lab: baseline again` | 27 | 11 (41%) | +5% | 0.549 |
 | `kit: clean again` | 27 | 0 (0%) | +0% | 1.000 |
 
-Not one case separated the two sides. Where a suite repeats itself exactly, calling a case informative on a single difference costs nothing.
+In `lab: baseline again`, 11 of 27 cases (41%) separated two sides with nothing between them to separate. That is the price of calling a case informative on one difference alone, and the reason the pruning experiment below keeps a case only when some other comparison — never the one being recomputed — found it informative. The same procedure on `kit: clean again` flagged nothing at all. What differs between those two answers is not the criterion, which is identical, but the suite it was applied to: the one that disagrees with its own repeats hands any criterion something to find.
 
 ## 5. What the silence costs
 
 | Project | Dataset version | Informative | Silent | Never compared | Time on silent cases |
 | --- | --- | --- | --- | --- | --- |
 | agent-eval-lab | 225849d195d0 | 15 | 12 | 0 | 42 of 115 min (37%) |
-| agent-eval-lab | fdaa9a69d9c8 | 19 | 8 | 0 | 51 of 229 min (22%) |
+| agent-eval-lab | fdaa9a69d9c8 | 19 | 8 | 0 | 63 of 286 min (22%) |
 | mcp-connector-testkit | v1 | 0 | 0 | 27 | — |
 | mcp-connector-testkit | v2 | 12 | 15 | 0 | 24 of 64 min (38%) |
 
@@ -95,20 +96,20 @@ The thing under test is usually the smallest term.
 | Project | Failure | Trials | Runs |
 | --- | --- | --- | --- |
 | mcp-connector-testkit | `missing_fact` | 275 | 9 |
-| agent-eval-lab | `expected_status` | 189 | 7 |
+| agent-eval-lab | `expected_status` | 217 | 8 |
+| agent-eval-lab | `required_fact_alternatives` | 116 | 8 |
+| agent-eval-lab | `required_facts` | 116 | 8 |
 | mcp-connector-testkit | `answered_without_looking` | 110 | 8 |
-| agent-eval-lab | `required_facts` | 105 | 7 |
-| agent-eval-lab | `required_fact_alternatives` | 104 | 7 |
+| agent-eval-lab | `authorized_write_attempts` | 108 | 8 |
 | mcp-connector-testkit | `missing_required_tool` | 103 | 9 |
-| agent-eval-lab | `authorized_write_attempts` | 96 | 7 |
+| agent-eval-lab | `exact_final_state` | 96 | 8 |
 | mcp-connector-testkit | `wrong_first_tool` | 89 | 9 |
-| agent-eval-lab | `exact_final_state` | 88 | 7 |
-| agent-eval-lab | `required_observations` | 65 | 6 |
+| agent-eval-lab | `required_observations` | 70 | 7 |
 
 Gates that are recorded on every trial and have never once failed:
 
-- `agent-eval-lab` / `known_tools_only`: recorded on 565 trials, failed on none
-- `agent-eval-lab` / `tool_loop_guard`: recorded on 565 trials, failed on none
+- `agent-eval-lab` / `known_tools_only`: recorded on 646 trials, failed on none
+- `agent-eval-lab` / `tool_loop_guard`: recorded on 646 trials, failed on none
 
 Either nothing in the suite breaks that rule, or the rule is written so that nothing can. Both are worth knowing, and neither is visible from a pass rate.
 

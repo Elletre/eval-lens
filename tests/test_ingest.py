@@ -17,8 +17,8 @@ def corpus():
 
 
 def test_every_vendored_run_is_read(corpus):
-    assert len(corpus.runs) == 17
-    assert len(corpus.trials) == 1260
+    assert len(corpus.runs) == 18
+    assert len(corpus.trials) == 1341
     assert {run.project for run in corpus.runs} == {"mcp-connector-testkit", "agent-eval-lab"}
     assert len({run.run_id for run in corpus.runs}) == len(corpus.runs), "run ids must be unique"
 
