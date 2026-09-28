@@ -129,9 +129,11 @@ Each comparison recomputed on the cases that *other* comparisons found informati
 
 Same verdict at 5% in 7 of 7 comparisons, with 18% to 55% of the running time removed. The effects get larger on the shorter suite, because the silent cases were averaging them down.
 
+Read the `lab` rows against the A/A pair above: on that suite 11 of 27 cases separate two runs of one variant, so some of what is kept here was selected by noise rather than by the policy. The verdicts survive either way — that is what the p columns say — but the set of cases doing the surviving is softer than a count of them suggests.
+
 ## What this does not show
 
-The corpus is two suites written by one person, scored by two small local models over five
+The corpus is two suites written by one person, scored by two small local models over eleven
 days. Everything here describes those suites: a saturated case is saturated *for these
 models*, and a case that never moved might move against a better one. The same measurements
 on a suite with more models and more runs would be worth more, and the queries would not
@@ -139,3 +141,7 @@ change.
 
 Nothing here judges the models. A suite that cannot separate two policies is a statement
 about the suite; which policy is better is a question these runs already answered elsewhere.
+
+The A/A pairs are one repeat each. Two runs of one variant give a point estimate of how much
+a suite moves on its own, not an interval around it, and the honest reading of the assistant
+suite's eleven cases is "many", not "eleven".

@@ -23,7 +23,7 @@ to it; the two experiments at the end are computed in Python alone.
 
 LIMITS = """## What this does not show
 
-The corpus is two suites written by one person, scored by two small local models over five
+The corpus is two suites written by one person, scored by two small local models over eleven
 days. Everything here describes those suites: a saturated case is saturated *for these
 models*, and a case that never moved might move against a better one. The same measurements
 on a suite with more models and more runs would be worth more, and the queries would not
@@ -31,6 +31,10 @@ change.
 
 Nothing here judges the models. A suite that cannot separate two policies is a statement
 about the suite; which policy is better is a question these runs already answered elsewhere.
+
+The A/A pairs are one repeat each. Two runs of one variant give a point estimate of how much
+a suite moves on its own, not an interval around it, and the honest reading of the assistant
+suite's eleven cases is "many", not "eleven".
 """
 
 
@@ -50,7 +54,7 @@ def render(
         _cost(store),
         _variance(corpus, comparisons),
         _failures(store),
-        _pruning(corpus, comparisons),
+        _pruning(corpus, comparisons, nulls or []),
         LIMITS,
     ]
     return "\n".join(_numbered(part for part in parts if part)).rstrip() + "\n"
@@ -398,7 +402,7 @@ def _failures(store: Store) -> str:
     )
 
 
-def _pruning(corpus: Corpus, comparisons: list[Comparison]) -> str:
+def _pruning(corpus: Corpus, comparisons: list[Comparison], nulls: list[Comparison]) -> str:
     rows = metrics.pruning_experiment(corpus, comparisons)
     labels = short_labels(comparisons)
     table = _table(
@@ -419,11 +423,26 @@ def _pruning(corpus: Corpus, comparisons: list[Comparison]) -> str:
     )
     survived = sum(row.same_verdict for row in rows)
     saved = [row.time_saved for row in rows]
+    projects = {pair.name: pair.project for pair in nulls}
+    noisy = [row for row in metrics.null_results(corpus, nulls) if row.moved]
+    caveat = ""
+    if noisy:
+        worst = max(noisy, key=lambda row: row.false_positives)
+        short = PROJECT_SHORT.get(projects[worst.comparison], projects[worst.comparison])
+        caveat = (
+            f"\n\nRead the `{short}` rows against the A/A pair "
+            f"above: on that suite {worst.moved} of {worst.cases} cases separate two runs of one "
+            "variant, so some of what is kept here was selected by noise rather than by the "
+            "policy. The verdicts survive either way — that is what the p columns say — but "
+            "the set of cases doing the surviving is softer than a count of them suggests."
+        )
     return (
         "## Would the conclusions survive a shorter suite?\n\n"
         "Each comparison recomputed on the cases that *other* comparisons found informative — "
         "never on the ones it decided itself.\n\n" + table + "\n\n"
         f"Same verdict at 5% in {survived} of {len(rows)} comparisons, with "
         f"{min(saved):.0%} to {max(saved):.0%} of the running time removed. The effects get "
-        "larger on the shorter suite, because the silent cases were averaging them down.\n"
+        "larger on the shorter suite, because the silent cases were averaging them down."
+        + caveat
+        + "\n"
     )
