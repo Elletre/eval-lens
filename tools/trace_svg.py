@@ -87,7 +87,8 @@ def render() -> str:
 
 def _svg(agent: ReadableSpan, tools: list[ReadableSpan]) -> str:
     attributes = dict(agent.attributes or {})
-    forbidden = "forbidden_tool" in list(attributes.get("eval.failures") or [])
+    failures = _strings(attributes.get("eval.failures"))
+    forbidden = "forbidden_tool" in failures
     seconds = ((agent.end_time or 0) - (agent.start_time or 0)) / 1_000_000_000
 
     rows: list[str] = []
@@ -128,7 +129,7 @@ def _svg(agent: ReadableSpan, tools: list[ReadableSpan]) -> str:
         ("eval.family", str(attributes.get("eval.family"))),
         ("eval.repeat", str(attributes.get("eval.repeat"))),
         ("eval.passed", str(attributes.get("eval.passed")).lower()),
-        ("eval.failures", ", ".join(str(item) for item in attributes.get("eval.failures") or [])),
+        ("eval.failures", ", ".join(failures)),
         ("gen_ai.usage.input_tokens", str(attributes.get("gen_ai.usage.input_tokens"))),
         ("gen_ai.usage.output_tokens", str(attributes.get("gen_ai.usage.output_tokens"))),
         ("eval.run_id", str(attributes.get("eval.run_id"))),
@@ -170,6 +171,11 @@ def _svg(agent: ReadableSpan, tools: list[ReadableSpan]) -> str:
         f"  {body}\n"
         f"</svg>\n"
     )
+
+
+def _strings(value: object) -> list[str]:
+    """An OTel attribute is a scalar or a sequence; here only the sequence case is meant."""
+    return [str(item) for item in value] if isinstance(value, (list, tuple)) else []
 
 
 def _bar(x: int, y: int, width: int, klass: str) -> str:

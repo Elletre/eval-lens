@@ -22,6 +22,10 @@ dependencies = [
     "opentelemetry-sdk>=1.30",
 ]
 
+[project.urls]
+Homepage = "https://github.com/Elletre/eval-lens"
+Repository = "https://github.com/Elletre/eval-lens"
+
 [project.scripts]
 eval-lens = "eval_lens.cli:main"
 
@@ -50,7 +54,7 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["src/eval_lens"]
+files = ["src/eval_lens", "tools"]
 
 [[tool.mypy.overrides]]
 # chDB ships no type information; its session API is three untyped methods.
