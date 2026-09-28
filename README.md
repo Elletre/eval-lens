@@ -46,8 +46,8 @@ Its descriptive sections come from the queries in [`sql/`](sql), each with a twi
   merely noisy; the assistant suite is 19 informative out of 27. Two whole families — six
   prompt-injection cases, six context-pressure cases — have never once told two candidates
   apart.
-- **The instrument disagrees with itself on 35% of the cases it repeats** (assistant suite,
-  `qwen3:8b`), against 7% for the connector suite's more mechanical checks.
+- **The instrument disagrees with itself on 34% of the cases it repeats** (assistant suite,
+  `qwen3:8b`), against 6% for the connector suite's more mechanical checks.
 - **The same policy moves 14 points between runs** when nothing about the policy changed —
   the floor under any difference these suites can claim.
 - **Run against itself, one suite reports nothing and the other reports 41%.** Each suite was
@@ -55,8 +55,8 @@ Its descriptive sections come from the queries in [`sql/`](sql), each with a twi
   The connector suite reproduced all 27 cases exactly: zero cases "moved". The assistant suite
   moved on 11 of 27 with nothing between the two sides to find. The criterion was the same in
   both; the suite was not.
-- **22% to 39% of the running time goes to cases that answer nothing.**
-- **Two gates recorded on 565 trials have never failed.** Either nothing in the suite breaks
+- **22% to 38% of the running time goes to cases that answer nothing.**
+- **Two gates recorded on 646 trials have never failed.** Either nothing in the suite breaks
   those rules, or the rules are written so that nothing can. A pass rate cannot see the
   difference.
 - **The thing under test is usually the smallest term** in the spread of verdicts: cases differ
