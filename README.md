@@ -145,6 +145,7 @@ sql/               the same questions in SQL, readable on their own
 data/              16 vendored runs and where each came from
 docs/method.md     definitions: units, comparability, every metric, the claim
 docs/replay.md     the trace side: attributes, receivers, what the timestamps mean
+docs/your-own-runs.md  the adapter contract: four facts per attempt, one function
 tools/             the generated picture, regenerable from the corpus
 REPORT.md          generated; CI fails when it stops matching the data
 ```
