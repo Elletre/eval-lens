@@ -24,10 +24,9 @@ constant is not pedantry here: in this corpus the wall clock alone moved one pub
 conclusion and the harness version moved another.
 
 **A/A pair** — two runs of the *same* variant under the same configuration. Not a comparison:
-it is the control, and whatever it reports is the instrument talking to itself. **This corpus
-does not contain one yet** — every pair of runs of one variant differs in at least one setting
-— so the report has no A/A section. The measurement is implemented and tested, and the section
-appears as soon as a corpus supplies the pair.
+it is the control, and whatever it reports is the instrument talking to itself. The corpus
+contains one because it was made for that purpose: a variant was re-run under its own settings,
+recorded in its own repository, and vendored here like everything else.
 
 **Trials the harness cut short** — a wall clock or token limit ended the attempt, so there is
 no verdict about the model. They are excluded from every rate. Counting them as failures is a
@@ -51,8 +50,8 @@ A case that took part in no comparison is *never compared* and gets no verdict r
 flattering one.
 
 This is deliberately the weakest possible criterion: one difference, in one comparison, in
-one direction. It was chosen before the pruning experiment was run. What it costs is what an
-A/A pair would measure: how many cases it flags when there is provably nothing to find.
+one direction. It was chosen before the pruning experiment was run, and what it costs is what
+the A/A pair measures: how many cases it flags when there is provably nothing to find.
 
 ### 2. Repeat noise
 
@@ -68,7 +67,7 @@ highest and lowest pass rate. Where the configuration also changed, the change i
 drift here is the joint effect of a setting nobody thought was load-bearing and the sampling
 nobody pinned.
 
-### 4. The A/A pair (implemented, not yet measured here)
+### 4. The A/A pair
 
 An A/A pair is scored exactly as a comparison is scored: the mean per-case difference, the
 exact sign test over the cases that moved, and the number of cases the informativeness
