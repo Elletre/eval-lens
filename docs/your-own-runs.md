@@ -28,6 +28,7 @@ An adapter is one function: bytes on disk in, `Corpus` out. The dataclasses are 
 ```python
 from eval_lens.model import Corpus, Run, Trial
 
+
 def read_run(path: Path, root: Path) -> Corpus:
     payload = json.loads(path.read_text())
     run = Run(
@@ -35,11 +36,11 @@ def read_run(path: Path, root: Path) -> Corpus:
         project="my-suite",
         suite="my-dataset",
         suite_version=payload["dataset_hash"][:12],
-        variant=payload["variant"],          # the thing under test
+        variant=payload["variant"],  # the thing under test
         model=payload["model"],
         config=f"temperature={payload['temperature']};scorer={payload['scorer']}",
         recorded_at=payload["date"],
-        kind="model",                        # "fixture" for an oracle-driven control
+        kind="model",  # "fixture" for an oracle-driven control
         source=str(path.relative_to(root)),
     )
     trials = [
@@ -49,7 +50,7 @@ def read_run(path: Path, root: Path) -> Corpus:
             family=row["category"],
             repeat=row["repeat"],
             passed=row["passed"],
-            error=row.get("stopped_by_limit", ""),   # excluded from every rate
+            error=row.get("stopped_by_limit", ""),  # excluded from every rate
             failures=tuple(row.get("failures", ())),
             seconds=row["seconds"],
         )
