@@ -24,12 +24,13 @@ it current.*
 
 ## The corpus is real, and it is not this project's
 
-Two public repositories of mine recorded **1,179 trials** across 16 runs over five days: an
+Two public repositories of mine recorded **1,260 trials** across 17 runs: an
 [MCP connector test kit](https://github.com/Elletre/mcp-connector-testkit) scoring a connector
 against seeded defects, and an [agent evaluation lab](https://github.com/Elletre/agent-eval-lab)
 scoring an assistant against deterministic gates. Their artifacts are vendored here verbatim,
-including the runs both repositories keep as evidence of a mistake rather than as results.
-Provenance, down to the source commit, is in [`data/MANIFEST.md`](data/MANIFEST.md).
+including the runs both repositories keep as evidence of a mistake rather than as results, and
+the repeat runs made for the A/A control below. Provenance, down to the source commit, is in
+[`data/MANIFEST.md`](data/MANIFEST.md).
 
 Those two suites were written carefully, by someone who was trying. That is what makes them
 worth measuring: the findings below are not about a careless suite.
@@ -48,7 +49,9 @@ Its descriptive sections come from the queries in [`sql/`](sql), each with a twi
 - **The instrument disagrees with itself on 35% of the cases it repeats** (assistant suite,
   `qwen3:8b`), against 7% for the connector suite's more mechanical checks.
 - **The same policy moves 14 points between runs** when nothing about the policy changed —
-  which is the floor under any difference these suites can claim.
+  the floor under any difference these suites can claim. An A/A pair separates how much of
+  that is sampling: the connector suite, run again ten days later with nothing changed,
+  reproduced all 27 cases exactly.
 - **22% to 39% of the running time goes to cases that answer nothing.**
 - **Two gates recorded on 565 trials have never failed.** Either nothing in the suite breaks
   those rules, or the rules are written so that nothing can. A pass rate cannot see the
@@ -77,7 +80,7 @@ make check                      # lint, types, tests, and the report diff
 ```
 
 ```bash
-uv run eval-lens ingest         # 16 runs, 1179 trials, 7 comparisons
+uv run eval-lens ingest         # 17 runs, 1260 trials, 7 comparisons
 uv run eval-lens query          # the questions, by name
 uv run eval-lens query silence_cost
 uv run eval-lens report         # regenerate REPORT.md
@@ -116,7 +119,7 @@ The two experiments — the variance split and the pruning recomputation — exi
 they are not descriptions of the stored rows but re-runs of a comparison under a different
 suite, and expressing that as a query would be a demonstration rather than a check.
 
-**Why ClickHouse for 1,179 rows.** It is overkill, and that is said out loud. It is here
+**Why ClickHouse for 1,260 rows.** It is overkill, and that is said out loud. It is here
 because the schema and the queries *are* the artifact: they are what moves to a server when
 the corpus is a hundred million trials instead of a thousand, and `eval-lens export` writes the
 tables so that move is a command rather than a promise. chDB runs the same engine in process,

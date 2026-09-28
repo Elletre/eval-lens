@@ -6,7 +6,12 @@ produced by this project, and nothing was edited on the way in.
 | Source | Commit | Copied |
 | --- | --- | --- |
 | [mcp-connector-testkit](https://github.com/Elletre/mcp-connector-testkit) | `53cac2ba40ce` | `evals/results/**/{trials.jsonl,summary.json}` |
+| [mcp-connector-testkit](https://github.com/Elletre/mcp-connector-testkit) | `92e3ac2` | `evals/results/2026-09-28-llama3-8b-clean-repeat/` |
 | [agent-eval-lab](https://github.com/Elletre/agent-eval-lab) | `49749313b9d7` | `experiments/**/*.json`, `reports/*.json` |
+
+Two of these runs were made for this project rather than found here: a variant repeated under
+its own settings, so that the report has an A/A control. They were recorded in the source
+repositories first, with their own commits, and copied here like everything else.
 
 Directory names flatten the original paths: `archive__2026-09-18-harness-v1__llama3-8b-baseline`
 was `evals/results/archive/2026-09-18-harness-v1/llama3-8b-baseline`.

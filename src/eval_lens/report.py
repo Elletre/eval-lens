@@ -42,7 +42,7 @@ def render(
 ) -> str:
     parts = [
         HEADER,
-        _corpus(store, comparisons),
+        _corpus(store, comparisons, nulls or []),
         _information(store),
         _noise(store),
         _drift(store, has_null_pair=bool(nulls)),
@@ -73,6 +73,10 @@ def _numbered(parts: Iterable[str]) -> list[str]:
 
 
 PROJECT_SHORT = {"agent-eval-lab": "lab", "mcp-connector-testkit": "kit"}
+
+
+def _count(pairs: int) -> str:
+    return "One A/A pair is derivable too:" if pairs == 1 else f"{pairs} A/A pairs are too:"
 
 
 def short_labels(comparisons: list[Comparison]) -> dict[str, str]:
@@ -118,7 +122,7 @@ def _table(header: list[str], rows: list[list[str]], align: str = "---") -> str:
     return "\n".join(lines)
 
 
-def _corpus(store: Store, comparisons: list[Comparison]) -> str:
+def _corpus(store: Store, comparisons: list[Comparison], nulls: list[Comparison]) -> str:
     runs = store.query(
         "SELECT project, count() AS runs, uniqExact(model) AS models, "
         "uniqExact(suite_version) AS versions "
@@ -148,7 +152,13 @@ def _corpus(store: Store, comparisons: list[Comparison]) -> str:
         )
         + f"\n\n{len(comparisons)} comparisons are derivable from it: pairs of runs that share "
         "project, dataset version, model and configuration and differ in exactly one variant. "
-        "Fixture runs never enter a comparison.\n"
+        "Fixture runs never enter a comparison."
+        + (
+            f" {_count(len(nulls))} two runs of one variant with nothing between them, which is "
+            "the control rather than a comparison.\n"
+            if nulls
+            else "\n"
+        )
     )
 
 
@@ -266,15 +276,28 @@ def _null(corpus: Corpus, nulls: list[Comparison]) -> str:
         ],
     )
     worst = max(rows, key=lambda row: row.false_positives)
+    if worst.moved == 0:
+        closing = (
+            "Not one case separated the two sides. Where a suite repeats itself exactly, "
+            "calling a case informative on a single difference costs nothing."
+        )
+    else:
+        closing = (
+            f"In `{labels[worst.comparison]}`, {worst.moved} of {worst.cases} cases "
+            f"({worst.false_positives:.0%}) separated two sides with nothing between them to "
+            "separate. That is the price of calling a case informative on one difference "
+            "alone, and the reason the pruning experiment below keeps a case only when some "
+            "other comparison — never the one being recomputed — found it informative."
+        )
     return (
         "## What the suite says when nothing changed\n\n"
         "One variant was run twice under identical settings, and the pair was then scored "
         "exactly as a real comparison is scored. Everything it reports is the instrument: the "
-        "right answer is no difference and no informative case.\n\n" + table + "\n\n"
-        f"{worst.false_positives:.0%} of the cases in that pair separated its two sides with "
-        "nothing between them to separate. That is the price of calling a case informative on "
-        "one difference alone, and the reason the pruning experiment below keeps a case only "
-        "when some other comparison — never the one being recomputed — found it informative.\n"
+        "right answer is no difference and no informative case.\n\n"
+        + table
+        + "\n\n"
+        + closing
+        + "\n"
     )
 
 

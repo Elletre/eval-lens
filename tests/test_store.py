@@ -23,14 +23,14 @@ def store():
 
 def test_the_corpus_arrives_whole(store):
     counts = store.query("SELECT count() AS trials, uniqExact(run_id) AS runs FROM trials")[0]
-    assert counts == {"trials": 1179, "runs": 16}
-    assert store.query("SELECT count() AS n FROM runs")[0]["n"] == 16
-    assert store.query("SELECT count() AS n FROM tool_calls")[0]["n"] == 1355
+    assert counts == {"trials": 1260, "runs": 17}
+    assert store.query("SELECT count() AS n FROM runs")[0]["n"] == 17
+    assert store.query("SELECT count() AS n FROM tool_calls")[0]["n"] == 1436
 
 
 def test_loading_twice_does_not_double_anything(store):
     store.load(read_corpus(ROOT / "data"))
-    assert store.query("SELECT count() AS n FROM trials")[0]["n"] == 1179
+    assert store.query("SELECT count() AS n FROM trials")[0]["n"] == 1260
 
 
 def test_gates_survive_as_a_queryable_map(store):

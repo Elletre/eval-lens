@@ -9,9 +9,9 @@ to it; the two experiments at the end are computed in Python alone.
 | Project | Runs | Models | Dataset versions | Trials | Cut short by a limit |
 | --- | --- | --- | --- | --- | --- |
 | agent-eval-lab | 8 | 2 | 3 | 576 | 11 |
-| mcp-connector-testkit | 8 | 1 | 2 | 603 | 0 |
+| mcp-connector-testkit | 9 | 1 | 2 | 684 | 0 |
 
-7 comparisons are derivable from it: pairs of runs that share project, dataset version, model and configuration and differ in exactly one variant. Fixture runs never enter a comparison.
+7 comparisons are derivable from it: pairs of runs that share project, dataset version, model and configuration and differ in exactly one variant. Fixture runs never enter a comparison. One A/A pair is derivable too: two runs of one variant with nothing between them, which is the control rather than a comparison.
 
 ## 1. Which cases carry information
 
@@ -37,7 +37,7 @@ Repeats of one case, under settings that did not change between them.
 | --- | --- | --- | --- | --- |
 | agent-eval-lab | ollama/qwen3:8b | 162 | 57 | 35% |
 | agent-eval-lab | oracle-fixture | 0 | 0 | — |
-| mcp-connector-testkit | ollama/llama3:latest | 198 | 13 | 7% |
+| mcp-connector-testkit | ollama/llama3:latest | 225 | 13 | 6% |
 
 ## 3. How far the same variant moves between runs
 
@@ -47,22 +47,34 @@ Nothing about the policy changed between these runs — only the configuration a
 | --- | --- | --- | --- | --- |
 | agent-eval-lab | fdaa9a69d9c8 | `baseline` | 2 | 14% |
 | agent-eval-lab | fdaa9a69d9c8 | `improved` | 2 | 4% |
-| mcp-connector-testkit | v2 | `clean` | 3 | 4% |
+| mcp-connector-testkit | v2 | `clean` | 4 | 4% |
 | mcp-connector-testkit | v2 | `untrusted-content-unmarked` | 2 | 4% |
 | mcp-connector-testkit | v2 | `vague-tool-descriptions` | 2 | 11% |
 
 The largest of these, 14%, is the floor under any difference these suites report: an effect smaller than that cannot be told from the instrument shifting.
 
-## 4. What the silence costs
+It is an upper bound on the sampling alone, because a setting moved between most of these runs as well. The pair below is the one place where nothing moved.
+
+## 4. What the suite says when nothing changed
+
+One variant was run twice under identical settings, and the pair was then scored exactly as a real comparison is scored. Everything it reports is the instrument: the right answer is no difference and no informative case.
+
+| Pair | Cases | Cases that moved | Δ pass rate | p |
+| --- | --- | --- | --- | --- |
+| `kit: clean again` | 27 | 0 (0%) | +0% | 1.000 |
+
+Not one case separated the two sides. Where a suite repeats itself exactly, calling a case informative on a single difference costs nothing.
+
+## 5. What the silence costs
 
 | Project | Dataset version | Informative | Silent | Never compared | Time on silent cases |
 | --- | --- | --- | --- | --- | --- |
 | agent-eval-lab | 225849d195d0 | 15 | 12 | 0 | 42 of 115 min (37%) |
 | agent-eval-lab | fdaa9a69d9c8 | 19 | 8 | 0 | 51 of 229 min (22%) |
 | mcp-connector-testkit | v1 | 0 | 0 | 27 | — |
-| mcp-connector-testkit | v2 | 12 | 15 | 0 | 22 of 55 min (39%) |
+| mcp-connector-testkit | v2 | 12 | 15 | 0 | 24 of 64 min (38%) |
 
-## 5. Where the spread in verdicts comes from
+## 6. Where the spread in verdicts comes from
 
 A crude decomposition of a binary outcome, reported as a direction rather than a measurement: the residual absorbs everything the other two terms cannot explain.
 
@@ -78,19 +90,19 @@ A crude decomposition of a binary outcome, reported as a direction rather than a
 
 The thing under test is usually the smallest term.
 
-## 6. What actually fails
+## 7. What actually fails
 
 | Project | Failure | Trials | Runs |
 | --- | --- | --- | --- |
-| mcp-connector-testkit | `missing_fact` | 245 | 8 |
+| mcp-connector-testkit | `missing_fact` | 275 | 9 |
 | agent-eval-lab | `expected_status` | 189 | 7 |
+| mcp-connector-testkit | `answered_without_looking` | 110 | 8 |
 | agent-eval-lab | `required_facts` | 105 | 7 |
 | agent-eval-lab | `required_fact_alternatives` | 104 | 7 |
-| mcp-connector-testkit | `answered_without_looking` | 101 | 7 |
+| mcp-connector-testkit | `missing_required_tool` | 103 | 9 |
 | agent-eval-lab | `authorized_write_attempts` | 96 | 7 |
-| mcp-connector-testkit | `missing_required_tool` | 91 | 8 |
+| mcp-connector-testkit | `wrong_first_tool` | 89 | 9 |
 | agent-eval-lab | `exact_final_state` | 88 | 7 |
-| mcp-connector-testkit | `wrong_first_tool` | 80 | 8 |
 | agent-eval-lab | `required_observations` | 65 | 6 |
 
 Gates that are recorded on every trial and have never once failed:
@@ -100,7 +112,7 @@ Gates that are recorded on every trial and have never once failed:
 
 Either nothing in the suite breaks that rule, or the rule is written so that nothing can. Both are worth knowing, and neither is visible from a pass rate.
 
-## 7. Would the conclusions survive a shorter suite?
+## 8. Would the conclusions survive a shorter suite?
 
 Each comparison recomputed on the cases that *other* comparisons found informative — never on the ones it decided itself.
 
